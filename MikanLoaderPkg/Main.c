@@ -6,6 +6,7 @@
 #include  <Protocol/SimpleFileSystem.h>
 #include  <Protocol/DiskIo2.h>
 #include  <Protocol/BlockIo.h>
+#include  <Guid/FileInfo.h>
 
 // #@@range_begin(struct_memory_map)
 struct MemoryMap {
@@ -137,8 +138,77 @@ EFI_STATUS EFIAPI UefiMain(
   memmap_file->Close(memmap_file);
   // #@@range_end(main)
 
+// import kernel file
+  EFI_FILE_PROTOCOL *kernel_file;
+  root_dir -> Open(
+    root_dir, &kernel_file, L"\\kernel.elf",
+    EFI_FILE_MODE_READ,0
+  ); //open kernel.elf for read
+
+
+  //malloc the memory for the opened file.
+  //EFI_FILE_INFO struct is in list3.3
+  UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12; // extra space is needed for FileName
+  UINT8 file_info_buffer[file_info_size];
+  kernel_file -> GetInfo(
+      kernel_file,&gEfiFileInfoGuid,
+      &file_info_size,file_info_buffer);
+    
+    //file_info_buffer is written by EFI_FILE_INFO_struct
+
+  EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
+  UINTN kernel_file_size = file_info -> FileSize;
+
+  //know the size of kernel file!
+  //we malloc the memory enough to allocate the file
+  EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
+  gBS->AllocatePages(
+    AllocateAddress, EfiLoaderData, 
+    (kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
+  //first arg is how allocate memory, second arg is the kind of memory,
+  //third arg is size, fourth arg is address
+
+  //read the file
+  kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
+  Print(L"Kernel: 0x%0lx (%lu bytes)\n", kernel_base_addr, kernel_file_size);
+
+  //stop the boot service because we want to use kernel
+  EFI_STATUS status;
+  status = gBS -> ExitBootServices(image_handle,memmap.map_key); //this function returns ERROR if mapkey is not same as current mep key
+  if (EFI_ERROR(status)) {
+    status = GetMemoryMap(&memmap);
+    if (EFI_ERROR(status)) {
+      Print(L"failed to get memory map: %r\n", status);
+      while (1);
+    }
+    status = gBS->ExitBootServices(image_handle, memmap.map_key);
+    if (EFI_ERROR(status)) {
+      Print(L"Could not exit boot service: %r\n", status);
+      while (1);
+    }
+  }
+
+  //call kernel
+  UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
+
+  typedef void EntryPointType(void); //we have to call entry point as C language
+  EntryPointType* entry_point = (EntryPointType*)entry_addr; //entry_addr is address of entry point
+  entry_point(); //entry_point is an address of a function whose pointer type is defined ad EntryPointType
+  //while(1) is icluded in entry_point(),so "ALl done " sohldn't printed.
   Print(L"All done\n");
 
   while (1);
   return EFI_SUCCESS;
-}
+
+
+  }
+
+
+  
+  
+
+
+  
+
+
+
