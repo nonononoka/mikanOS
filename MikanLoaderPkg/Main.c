@@ -166,6 +166,9 @@ void Halt(void){
 }
 
 void CalcLoadAddressRange(Elf64_Ehdr* ehdr, UINT64* first, UINT64* last){ //ehdr is address of kernel file
+  //refer elf.hpp for the structure of ELF, ehdr is a pointer to kernel_file and
+  //the beginning of kernel_file is file header, whose structure is on elf.hpp
+  //if one cast the ehdr to Elf64_Ehdr, one use ehdr -> e_phoff
   Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr -> e_phoff); //calculate program header offset
   *first = MAX_UINT64;
   *last = 0;
@@ -181,8 +184,8 @@ void CopyLoadSegments(Elf64_Ehdr* ehdr){
   for(Elf64_Half i = 0; i < ehdr -> e_phnum; ++i){
     if(phdr[i].p_type != PT_LOAD)continue;
 
-    UINT64 segm_in_file = (UINT64)ehdr + phdr[i].p_offset; //segm_in_file is i-th load segment
-    CopyMem((VOID*)phdr[i].p_vaddr, (VOID*)segm_in_file, phdr[i].p_filesz);
+    UINT64 segm_in_file = (UINT64)ehdr + phdr[i].p_offset; //temporary area , segm_in_file is i-th load segment
+    CopyMem((VOID*)phdr[i].p_vaddr, (VOID*)segm_in_file, phdr[i].p_filesz); //copy to p_vaddr
 
     UINTN remain_bytes = phdr[i].p_memsz - phdr[i].p_filesz;
     SetMem((VOID*)(phdr[i].p_vaddr + phdr[i].p_filesz), remain_bytes, 0);
@@ -281,7 +284,7 @@ EFI_STATUS EFIAPI UefiMain(
     Halt();
   }
     
-    //file_info_buffer is written by EFI_FILE_INFO_struct
+  //file_info_buffer is written by EFI_FILE_INFO_struct
 
   EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
   UINTN kernel_file_size = file_info -> FileSize;
@@ -298,13 +301,15 @@ EFI_STATUS EFIAPI UefiMain(
     Halt();
   }
 
+  //kernel buffer is an pointer to kernel_file.
+  //the beginning of kernel_file is a file header.
   Elf64_Ehdr* kernel_ehdr = (Elf64_Ehdr*)kernel_buffer;
   UINT64 kernel_first_addr, kernel_last_addr;
   CalcLoadAddressRange(kernel_ehdr, &kernel_first_addr, &kernel_last_addr);
 
   UINTN num_pages = (kernel_last_addr - kernel_first_addr + 0xfff) / 0x1000;
   status = gBS -> AllocatePages(AllocateAddress, EfiLoaderData, 
-                                num_pages, &kernel_first_addr);
+                                num_pages, &kernel_first_addr); //we want to import the file in this area.
   if(EFI_ERROR(status)){
     Print(L"failed to allocate pages: %r\n", status);
     Halt();
