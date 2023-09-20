@@ -8,6 +8,7 @@
 #include  <Protocol/DiskIo2.h>
 #include  <Protocol/BlockIo.h>
 #include  <Guid/FileInfo.h>
+#include  "frame_buffer_config.hpp"
 
 // #@@range_begin(struct_memory_map)
 struct MemoryMap {
@@ -299,9 +300,30 @@ EFI_STATUS EFIAPI UefiMain(
   //call kernel
   UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
 
-  typedef void EntryPointType(UINT64,UINT64); //we have to call entry point as C language
+  //pass_frame_buffer_config
+  struct FrameBufferConfig config = {
+    (UINT8*)gop -> Mode -> FrameBufferBase,
+    gop -> Mode -> Info -> PixelsPerScanLine,
+    gop -> Mode -> Info -> HorizontalResolution,
+    gop -> Mode -> Info -> VerticalResolution,
+    0
+  };
+  switch (gop -> Mode -> Info -> PixelFormat){
+    case PixelRedGreenBlueReserved8BitPerColor:
+      config.pixel_format = kPixelRGBResv8BitPerColor;
+      break;
+    case PixelBlueGreenRedReserved8BitPerColor:
+      config.pixel_format = kPixelBGRResv8BitPerColor;
+      break;
+    default:
+      Print(L"Unimplemented pixel format: %d\n", gop->Mode->Info->PixelFormat);
+      Halt();
+  }
+
+  //const is used to declare argument is constant, which means it won't be changed.
+  typedef void EntryPointType(const struct FrameBufferConfig*); //we have to call entry point as C language
   EntryPointType* entry_point = (EntryPointType*)entry_addr; //entry_addr is address of entry point
-  entry_point(gop->Mode->FrameBufferBase,gop->Mode->FrameBufferSize); //entry_point is an address of a function whose pointer type is defined ad EntryPointType
+  entry_point(&config); //entry_point is an address of a function whose pointer type is defined ad EntryPointType
   //while(1) is icluded in entry_point(),so "ALl done " sohldn't printed.
   
   Print(L"All done\n");
