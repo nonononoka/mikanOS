@@ -193,10 +193,10 @@ EFI_STATUS EFIAPI UefiMain(
       gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
       gop->Mode->FrameBufferSize);
 
-  UINT8* frame_buffer = (UINT8*)gop -> Mode -> FrameBufferBase; //head addredd of frame buffer
-  for(UINTN i = 0;i < gop -> Mode -> FrameBufferSize; ++i){
-    frame_buffer[i] = 255;
-  }
+  // UINT8* frame_buffer = (UINT8*)gop -> Mode -> FrameBufferBase; //head addredd of frame buffer
+  // for(UINTN i = 0;i < gop -> Mode -> FrameBufferSize; ++i){
+  //   frame_buffer[i] = 255;
+  // }
 
 //frame_buffer is overwritten by "kernel ~~".
 // import kernel file
@@ -237,11 +237,13 @@ EFI_STATUS EFIAPI UefiMain(
   EFI_STATUS status;
   status = gBS -> ExitBootServices(image_handle,memmap.map_key); //this function returns ERROR if mapkey is not same as current mep key
   if (EFI_ERROR(status)) {
+    // Print(L"All done\n");
     status = GetMemoryMap(&memmap);
     if (EFI_ERROR(status)) {
       Print(L"failed to get memory map: %r\n", status);
       while (1);
     }
+
     status = gBS->ExitBootServices(image_handle, memmap.map_key);
     if (EFI_ERROR(status)) {
       Print(L"Could not exit boot service: %r\n", status);
@@ -252,12 +254,12 @@ EFI_STATUS EFIAPI UefiMain(
   //call kernel
   UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
 
-  typedef void EntryPointType(void); //we have to call entry point as C language
+  typedef void EntryPointType(UINT64,UINT64); //we have to call entry point as C language
   EntryPointType* entry_point = (EntryPointType*)entry_addr; //entry_addr is address of entry point
-  entry_point(); //entry_point is an address of a function whose pointer type is defined ad EntryPointType
+  entry_point(gop->Mode->FrameBufferBase,gop->Mode->FrameBufferSize); //entry_point is an address of a function whose pointer type is defined ad EntryPointType
   //while(1) is icluded in entry_point(),so "ALl done " sohldn't printed.
+  
   Print(L"All done\n");
-
   while (1);
   return EFI_SUCCESS;
 
