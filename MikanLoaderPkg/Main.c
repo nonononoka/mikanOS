@@ -158,31 +158,61 @@ const CHAR16* GetPixelFormatUnicode(EFI_GRAPHICS_PIXEL_FORMAT fmt) {
   }
 }
 
+void Halt(void){
+  while (1) __asm__("hlt");
+}
+
 EFI_STATUS EFIAPI UefiMain(
     EFI_HANDLE image_handle,
     EFI_SYSTEM_TABLE* system_table) {
+  EFI_STATUS status;
   Print(L"Hello, Mikan World!\n");
 
   // #@@range_begin(main)
   CHAR8 memmap_buf[4096 * 4];
   struct MemoryMap memmap = {sizeof(memmap_buf), memmap_buf, 0, 0, 0, 0};
-  GetMemoryMap(&memmap);
+  status = GetMemoryMap(&memmap);
+  if(EFI_ERROR(status)){
+    Print(L"failed to get memory map: %r\n", status);
+    Halt();
+  }
 
   EFI_FILE_PROTOCOL* root_dir;
-  OpenRootDir(image_handle, &root_dir);
+  status = OpenRootDir(image_handle, &root_dir);
+  if (EFI_ERROR(status)) {
+    Print(L"failed to open root directory: %r\n", status);
+    Halt();
+  }
 
   EFI_FILE_PROTOCOL* memmap_file;
-  root_dir->Open(
+  status = root_dir->Open(
       root_dir, &memmap_file, L"\\memmap",
       EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 0);
-
-  SaveMemoryMap(&memmap, memmap_file);
-  memmap_file->Close(memmap_file);
-  // #@@range_end(main)
+  if(EFI_ERROR(status)){
+    Print(L"failed to open file '\\memmmap' : %r\n", status);
+    Print(L"Ignored.\n");
+  }
+  else{
+    status = SaveMemoryMap(&memmap, memmap_file);
+    if(EFI_ERROR(status)){
+      Print(L"failed to close memory map: %r\n",status);
+      Halt();
+    }
+    status =  memmap_file->Close(memmap_file);
+    if(EFI_ERROR(status)){
+      Print(L"failed to close memory map: %r\n",status);
+      Halt();
+    }
+  }
 
   //pixcel
   EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
-  OpenGOP(image_handle, &gop); //get GOP if succeed , gop is set to the value
+  status = OpenGOP(image_handle, &gop); //get GOP if succeed , gop is set to the value
+  if (EFI_ERROR(status)){
+    Print(L"failed to open GOP: %r\n",status);
+    Halt();
+  }
+
   Print(L"Resolution: %ux%u, Pixel Format: %s, %u pixels/line\n",
       gop->Mode->Info->HorizontalResolution,
       gop->Mode->Info->VerticalResolution,
@@ -193,27 +223,35 @@ EFI_STATUS EFIAPI UefiMain(
       gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
       gop->Mode->FrameBufferSize);
 
-  // UINT8* frame_buffer = (UINT8*)gop -> Mode -> FrameBufferBase; //head addredd of frame buffer
-  // for(UINTN i = 0;i < gop -> Mode -> FrameBufferSize; ++i){
-  //   frame_buffer[i] = 255;
-  // }
+  UINT8* frame_buffer = (UINT8*)gop -> Mode -> FrameBufferBase; //head addredd of frame buffer
+  for(UINTN i = 0;i < gop -> Mode -> FrameBufferSize; ++i){
+    frame_buffer[i] = 255;
+  }
 
 //frame_buffer is overwritten by "kernel ~~".
 // import kernel file
   EFI_FILE_PROTOCOL *kernel_file;
-  root_dir -> Open(
+  status = root_dir -> Open(
     root_dir, &kernel_file, L"\\kernel.elf",
     EFI_FILE_MODE_READ,0
   ); //open kernel.elf for read
+  if(EFI_ERROR(status)){
+    Print(L"failed to open file '\\kernel.elf': %r\n", status);
+    Halt();
+  }
 
 
   //malloc the memory for the opened file.
   //EFI_FILE_INFO struct is in list3.3
   UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12; // extra space is needed for FileName
   UINT8 file_info_buffer[file_info_size];
-  kernel_file -> GetInfo(
+  status = kernel_file -> GetInfo(
       kernel_file,&gEfiFileInfoGuid,
       &file_info_size,file_info_buffer);
+  if (EFI_ERROR(status)) {
+    Print(L"failed to get file information: %r\n", status);
+    Halt();
+  }
     
     //file_info_buffer is written by EFI_FILE_INFO_struct
 
@@ -223,18 +261,25 @@ EFI_STATUS EFIAPI UefiMain(
   //know the size of kernel file!
   //we malloc the memory enough to allocate the file
   EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
-  gBS->AllocatePages(
+  status = gBS->AllocatePages(
     AllocateAddress, EfiLoaderData, 
     (kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
+  if (EFI_ERROR(status)) {
+    Print(L"failed to allocate pages: %r", status);
+    Halt();
+  }
   //first arg is how allocate memory, second arg is the kind of memory,
   //third arg is size, fourth arg is address
 
   //read the file
-  kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
+  status = kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
+  if (EFI_ERROR(status)){
+    Print(L"error: %r", status);
+    Halt();
+  }
   Print(L"Kernel: 0x%0lx (%lu bytes)\n", kernel_base_addr, kernel_file_size);
 
   //stop the boot service because we want to use kernel
-  EFI_STATUS status;
   status = gBS -> ExitBootServices(image_handle,memmap.map_key); //this function returns ERROR if mapkey is not same as current mep key
   if (EFI_ERROR(status)) {
     // Print(L"All done\n");
