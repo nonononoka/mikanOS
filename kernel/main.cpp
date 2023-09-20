@@ -63,13 +63,11 @@ PixelWriter* pixel_writer;
 extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){ //extern "C" means that we can define function in C language.
     switch (frame_buffer_config.pixel_format) {
         case kPixelRGBResv8BitPerColor:
-         pixel_writer = new(pixel_writer_buf) //pointer of pixel writer
-         RGBResv8BitPerColorPixelWriter{frame_buffer_config}; //generate instance , not initialization
+         pixel_writer = new(pixel_writer_buf)RGBResv8BitPerColorPixelWriter{frame_buffer_config}; //generate instance , not initialization
          break;
         
         case kPixelBGRResv8BitPerColor:
-         pixel_writer = new(pixel_writer_buf)
-         BGRResv8BitPerColorPixelWriter{frame_buffer_config}; //generate instance , not initialization
+         pixel_writer = new(pixel_writer_buf)BGRResv8BitPerColorPixelWriter{frame_buffer_config}; //generate instance , not initialization
          break;
     }
 
