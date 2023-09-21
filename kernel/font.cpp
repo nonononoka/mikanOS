@@ -5,7 +5,7 @@ extern const uint8_t _binary_hankaku_bin_end;
 extern const uint8_t _binary_hankaku_bin_size; //extern means that we refer variable in other object file 
 
 const uint8_t* GetFont(char c){
-    auto index = 16 * static_cast < unsigned int > (c);
+    auto index = 16 * static_cast < unsigned int > (c); //16bytes per char
     if (index >= reinterpret_cast<uintptr_t>(&_binary_hankaku_bin_size)) {
         return nullptr;
     }
