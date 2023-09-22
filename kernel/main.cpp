@@ -17,7 +17,7 @@ char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter* pixel_writer;
 
 char console_buf[sizeof(Console)];
-Console* console;
+Console* console; //global variabl!!
 
 int printk(const char* format, ...) { //allocatable args
     va_list ap;
@@ -48,7 +48,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
         }
     }
 
-    // to use console as an global variable
+    // to use console as an global variable(it's defined at l20)
     console = new(console_buf) Console(*pixel_writer, {0,0,0}, {255,255,255}); //allocate console in global area
 
     for (int i = 0; i < 27; ++i){
