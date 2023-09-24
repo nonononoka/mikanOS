@@ -1,14 +1,11 @@
-main.o: main.cpp \
+pci.o: pci.cpp pci.hpp \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstdint \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/__config \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/stdint.h \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstddef \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/version \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstdio \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/stdio.h \
-  frame_buffer_config.hpp graphics.hpp font.hpp console.hpp pci.hpp \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/array \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/__tuple \
+  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstddef \
+  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/version \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/type_traits \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/utility \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/initializer_list \
@@ -33,4 +30,5 @@ main.o: main.cpp \
   /home/nonoka/osbook/devenv/x86_64-elf/include/assert.h \
   /home/nonoka/osbook/devenv/x86_64-elf/include/_ansi.h \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/functional \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/bit error.hpp
+  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/bit error.hpp \
+  asmfunc.h
