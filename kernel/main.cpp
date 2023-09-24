@@ -101,28 +101,38 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 
     printk("Welcome to MikanOS!\n");
 
-    for (int dy = 0; dy < kMouseCursorHeight ; ++dy) {
-        for (int dx = 0; dx < kMouseCursorWidth; ++dx){
-            if (mouse_cursor_shape[dy][dx] == '@') {
-                pixel_writer -> Write(200 + dx, 100 + dy, {0,0,0});
-            }
-            else if (mouse_cursor_shape[dy][dx] == '.'){
-                pixel_writer -> Write(200 + dx, 100 + dy, {255,255,255});
+    auto err = pci::ScanAllBus();
+    Log(kDebug, "ScanAllBus: %s\n", err.Name());
+
+    for (int i = 0;i < pci::num_device; ++i) {
+        const auto& dev = pci::devices[i];
+        auto vendor_id = pci::ReadVendorId(dev);
+        auto class_code = pci::ReadClassCode(dev.bus, dev.device, dev.function);
+        Log(kDebug, "%d.%d.%d: vend %04x, class %08x, head %02x\n",
+        dev.bus, dev.device, dev.function,
+        vendor_id, class_code, dev.header_type);
+    }
+    
+    pci::Device* xhc_dev = nullptr;
+    for (int i = 0; i < pci::num_device ; ++i) {
+        if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x30u)) { //it means xHCl(ref p151)
+            xhc_dev = &pci::devices[i];
+
+            if (0x8086 == pci::ReadVendorId(*xhc_dev)) { //adopt made intel 
+                break;
             }
         }
     }
 
-    auto err = pci::ScanAllBus();
-    printk("ScanAllBus: %s\n" , err.Name()); //pci.hpp includes error.hpp, so in this file, error.hpp shouldn't be included.
-
-    for (int i = 0;i < pci::num_device; ++i) {
-        const auto& dev = pci::devices[i];
-        auto vendor_id = pci::ReadVendorId(dev.bus, dev.device, dev.function);
-        auto class_code = pci::ReadClassCode(dev.bus, dev.device, dev.function);
-        printk("%d.%d.%d: vend %04x, class %08x, head %02x\n",
-            dev.bus, dev.device, dev.function,
-            vendor_id, class_code, dev.header_type);
+    if(xhc_dev) {
+        Log(kInfo, "xHC has been found: %d.%d.%d\n",
+            xhc_dev -> bus, xhc_dev -> device, xhc_dev -> function);
     }
+
+    const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0);
+    Log(kDebug, "REadBar: %s\n", xhc_bar.error.Name());
+    const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast <uint64_t> (0xf);
+    Log(kDebug, "xHC mmio_base = %08lx\n", xhc_mmio_base);
 
     while (1) __asm__("hlt");
 }

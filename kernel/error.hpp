@@ -7,7 +7,24 @@ class Error {
             kSuccess,
             kFull,
             kEmpty,
-            kLastOfCode,
+            kNoEnoughMemory,
+            kIndexOutOfRange,
+            kHostControllerNotHalted,
+            kInvalidSlotID,
+            kPortNotConnected,
+            kInvalidEndpointNumber,
+            kTransferRingNotSet,
+            kAlreadyAllocated,
+            kNotImplemented,
+            kInvalidDescriptor,
+            kBufferTooSmall,
+            kUnknownDevice,
+            kNoCorrespondingSetupStage,
+            kTransferFailed,
+            kInvalidPhase,
+            kUnknownXHCISpeedID,
+            kNoWaiter,
+            kLastOfCode,  // この列挙子は常に最後に配置する
         };
     
         Error(Code code) : code_{code} {} //constructer
@@ -30,3 +47,10 @@ class Error {
 
         Code code_;
 };
+
+#define MAKE_ERROR(code) Error((code), __FILE__,__LINE__)
+template <class T>
+struct WithError {
+    T value;
+    Error error;
+}
