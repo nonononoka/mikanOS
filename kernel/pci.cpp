@@ -150,12 +150,12 @@ namespace pci {
         return MAKE_ERROR(Error::kSuccess);
     }
 
-    uint32_t ReadConfig(const Device& dev, uint8_t reg_addr) {
+    uint32_t ReadConfReg(const Device& dev, uint8_t reg_addr) {
         WriteAddress(MakeAddress(dev.bus, dev.device, dev.function, reg_addr));
         return ReadData();
     }
 
-    void WriteConfig(const Device& dev, uint8_t reg_addr, uint32_t value) {
+    void WriteConfReg(const Device& dev, uint8_t reg_addr, uint32_t value) {
         WriteAddress(MakeAddress(dev.bus, dev.device, dev.function, reg_addr));
         WriteData(value);
     }
@@ -166,19 +166,19 @@ namespace pci {
         }
 
         const auto addr = CalcBarAddress(bar_index);
-        const auto bar = ReadConfig(device, addr);
+        const auto bar = ReadConfReg(device, addr);
 
         //32 bit address
-        if ((bar & 4u) == 0) {
+        if ((bar & 4u) == 0) { 
             return {bar, MAKE_ERROR(Error::kSuccess)};
         }
 
-        //64 bit address
+        //64 bit address //we are supposed to use successive bar to express 64 bit address.
         if (bar_index >= 5) {
             return {0, MAKE_ERROR(Error::kIndexOutOfRange)};
         }
 
-        const auto bar_upper = ReadConfig(device, addr + 4);
+        const auto bar_upper = ReadConfReg(device, addr + 4); //the unit of addr is 1 byte.
         return {
             bar | (static_cast<uint64_t>(bar_upper) << 32),
             MAKE_ERROR(Error::kSuccess)

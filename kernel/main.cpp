@@ -2,46 +2,25 @@
 #include <cstddef>
 #include <cstdio>
 
+#include <numeric>
+#include <vector>
+
 #include "frame_buffer_config.hpp"
 #include "graphics.hpp"
 #include "font.hpp"
 #include "console.hpp"
 #include "pci.hpp"
+#include "logger.hpp"
+#include "usb/memory.hpp"
+#include "usb/device.hpp"
+#include "usb/classdriver/mouse.hpp"
+#include "usb/xhci/xhci.hpp"
+#include "usb/xhci/trb.hpp"
 
 void operator delete(void* obj) noexcept {}
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
-
-//the shape of mouse cursor
-const int kMouseCursorWidth = 15;
-const int kMouseCursorHeight = 24;
-const char mouse_cursor_shape[kMouseCursorHeight][kMouseCursorWidth + 1] = {
-    "@              ",
-    "@@             ",
-    "@.@            ",
-    "@..@           ",
-    "@...@          ",
-    "@....@         ",
-    "@.....@        ",
-    "@......@       ",
-    "@.......@      ",
-    "@........@     ",
-    "@.........@    ",
-    "@..........@   ",
-    "@...........@  ",
-    "@............@ ",
-    "@......@@@@@@@@",
-    "@......@       ",
-    "@....@@.@      ",
-    "@...@ @.@      ",
-    "@..@   @.@     ",
-    "@.@    @.@     ",
-    "@@      @.@    ",
-    "@       @.@    ",
-    "         @.@   ",
-    "         @@@   ",
-};
 
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter* pixel_writer;
@@ -60,6 +39,34 @@ int printk(const char* format, ...) { //allocatable args
 
     console -> PutString(s);
     return result;
+}
+
+char mouse_cursor_buf[sizeof(MouseCursor)];
+MouseCursor* mouse_cursor;
+
+void MouseObserver(int8_t displacement_x, int8_t, int8_t displacement_y) {
+    mouse_cursor -> MoveRelative({displacement_x, displacement_y});
+}
+
+void SwitchEhci2Xhci(const pci::Device& xhc_dev) {
+  bool intel_ehc_exist = false;
+  for (int i = 0; i < pci::num_device; ++i) {
+    if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x20u) /* EHCI */ &&
+        0x8086 == pci::ReadVendorId(pci::devices[i])) {
+      intel_ehc_exist = true;
+      break;
+    }
+  }
+  if (!intel_ehc_exist) {
+    return;
+  }
+
+  uint32_t superspeed_ports = pci::ReadConfReg(xhc_dev, 0xdc); // USB3PRM
+  pci::WriteConfReg(xhc_dev, 0xd8, superspeed_ports); // USB3_PSSEN
+  uint32_t ehci2xhci_ports = pci::ReadConfReg(xhc_dev, 0xd4); // XUSB2PRM
+  pci::WriteConfReg(xhc_dev, 0xd0, ehci2xhci_ports); // XUSB2PR
+  Log(kDebug, "SwitchEhci2Xhci: SS = %02, xHCI = %02x\n",
+      superspeed_ports, ehci2xhci_ports);
 }
 
 extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
@@ -101,6 +108,10 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 
     printk("Welcome to MikanOS!\n");
 
+    mouse_cursor = new(mouse_cursor_buf) MouseCursor {
+        pixel_writer, kDesktopBGColor, {300,200}
+    };
+
     auto err = pci::ScanAllBus();
     Log(kDebug, "ScanAllBus: %s\n", err.Name());
 
@@ -122,18 +133,57 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
                 break;
             }
         }
-    }
 
     if(xhc_dev) {
         Log(kInfo, "xHC has been found: %d.%d.%d\n",
             xhc_dev -> bus, xhc_dev -> device, xhc_dev -> function);
     }
 
-    const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0);
-    Log(kDebug, "REadBar: %s\n", xhc_bar.error.Name());
-    const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast <uint64_t> (0xf);
+    //get MMIO(memory mapped io) registers address which control xHC(host controller)
+    //MMIO address should be registered in BAR0 in configuration space.
+
+    const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0); //xhc_dev contains address which points to MMIO in xHC.
+    Log(kDebug, "ReadBar: %s\n", xhc_bar.error.Name());
+    //xhc_bar.value represents the address which points to head xHC registers.
+    const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast <uint64_t> (0xf); //ref p 159
     Log(kDebug, "xHC mmio_base = %08lx\n", xhc_mmio_base);
+
+    //initialize //this class controls host controller.
+    usb::xhci::Controller xhc{xhc_mmio_base};
+    //for xHC made in intel.
+    if(0x8086 == pci::ReadVendorId(*xhc_dev)) {
+        SwitchEhci2Xhci(*xhc_dev);
+    }
+    {
+        auto err = xhc.Initialize();
+        Log(kDebug, "xhc.Initialize: %s\n",err.Name());
+    }
+
+    Log(kInfo, "xHC strting\n");
+    xhc.Run();
+
+    //configure_part
+    usb::HIDMouseDriver::default_observer = MouseObserver; //this is class driver for USB mouse(ref p155)
+
+    for (int i = 1; i <= xhc.MaxPorts() ; ++1) {
+        auto port = xhc.PostAt(i);
+        Log(kDebug, "Port %d: IsConnected = %d\n", i, port.IsConnected());
+
+        if (port.IsConnedted()) {
+            if (auto err = ConfigurePort(xhc, port)) { //ADL
+                Log(kError, "failed to configure port: %s at %s:%d\n",
+                err.Name(), err.File(), err.Line());
+            continue;
+            }
+        }
+    }
+
+    while (1) {
+        if (auto err = ProcessEvent(xhc)) {
+            Log(kError, "Error while ProceEvent: %s at %s:%d\n",
+                err.Name(),err.File(),err.Line());
+        }
+    }
 
     while (1) __asm__("hlt");
 }
-

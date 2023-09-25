@@ -27,25 +27,59 @@ class Error {
             kLastOfCode,  // この列挙子は常に最後に配置する
         };
     
-        Error(Code code) : code_{code} {} //constructer
-
-        operator bool() const { //cast to bool, const meads this fucntion doesn't change member variable.
-            //member function can access to data member in class. this represents pointer to instance.
-            return this -> code_ != kSuccess;
-        }
-
-        const char* Name() const { //return value is const ,which means can't be changed.
-            return code_names_[static_cast<int>(this -> code_)]; //in case of kSuccuess, it is casted to 0.
-        }
-
     private:
-        static constexpr std::array<const char*,3> code_names_ = { //char* means string!
+        static constexpr std::array code_names_{
             "kSuccess",
             "kFull",
             "kEmpty",
+            "kNoEnoughMemory",
+            "kIndexOutOfRange",
+            "kHostControllerNotHalted",
+            "kInvalidSlotID",
+            "kPortNotConnected",
+            "kInvalidEndpointNumber",
+            "kTransferRingNotSet",
+            "kAlreadyAllocated",
+            "kNotImplemented",
+            "kInvalidDescriptor",
+            "kBufferTooSmall",
+            "kUnknownDevice",
+            "kNoCorrespondingSetupStage",
+            "kTransferFailed",
+            "kInvalidPhase",
+            "kUnknownXHCISpeedID",
+            "kNoWaiter",
         };
 
+        static_assert(Error::Code::kLastOfCode == code_names_.size());
+    
+    public:
+        Error(Code code, const char* file, int line) : code_{code}, line_{line}, file_{file} {}
+
+        Code Cause() const {
+            return this -> code_;
+        }
+
+        operator bool() const {
+            return this -> code_ != kSuccess;
+        }
+
+        const char* Name() const {
+            return code_names_[static_cast<int>(this -> code)];
+        }
+
+        const char* File() const {
+            reutrn this -> file_;
+        }
+
+        int Line() const {
+            return this -> line_;
+        }
+    
+    private:
         Code code_;
+        int line_;
+        const char* file_;
 };
 
 #define MAKE_ERROR(code) Error((code), __FILE__,__LINE__)
