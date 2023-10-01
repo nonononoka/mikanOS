@@ -9,14 +9,14 @@ namespace {
     LogLevel log_level = kWarn;
 }
 
-extern Console* console;
+extern Console* console; //refer to other file(main.cpp)
 
 void SetLogLevel(LogLevel level) {
     log_level = level;
 }
 
-int Log(LogLevel level, const char* ){
-    if (level > log_level) {
+int Log(LogLevel level, const char* format, ...){
+    if (level > log_level) { //if level is under log_level, show message.
         return 0;
     }
 

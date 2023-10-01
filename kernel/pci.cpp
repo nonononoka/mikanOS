@@ -20,36 +20,33 @@ namespace { //internal linkage(= can't be accessed by other file)
             | (reg_addr & 0xfcu); //offset(2bit is 0)
     }
 
-    Error AddDevice(uint8_t bus, uint8_t device,
-                    uint8_t function, uint8_t header_type) {
+    Error AddDevice(const Device& device) {
         if (num_device == devices.size()){
-            return Error::kFull;
+            return MAKE_ERROR(Error::kFull);
         }
 
-        devices[num_device] = Device{bus, device, function, header_type};
+        devices[num_device] = device;
         ++num_device;
-        return Error::kSuccess;
+        return MAKE_ERROR(Error::kSuccess);
     }
 
     Error ScanBus(uint8_t bus);
 
     Error ScanFunction(uint8_t bus, uint8_t device, uint8_t function) { //register (bus,device,function) to devices array.
-        auto header_type = ReadHeaderType(bus, device, function);
-        if (auto err = AddDevice(bus, device, function, header_type)) { //means whether err is not kSuccuess
+        auto class_code = ReadClassCode(bus,device,function);
+        auto header_type = ReadHeaderType(bus,device,function);
+        Device dev{bus, device, function, header_type, class_code};
+        if (auto err = AddDevice(dev)) {
             return err;
         }
-        //err is kSuccess.
-        auto class_code = ReadClassCode(bus,device,function); //ref p142
-        uint8_t base = (class_code >> 24) & 0xffu;
-        uint8_t sub = (class_code >> 16) & 0xffu;
 
-        if (base == 0x06u && sub == 0x04u) { //PCI to PCI bridge.
+        if(class_code.Match(0x06u, 0x04u)) {
             auto bus_numbers = ReadBusNumbers(bus, device, function);
             uint8_t secondary_bus = (bus_numbers >> 8) & 0xffu;
-            return ScanBus(secondary_bus); //search the PCI device connected to secondary bus
+            return ScanBus(secondary_bus);
         }
 
-        return Error::kSuccess;
+        return MAKE_ERROR(Error::kSuccess);
     }
 
     Error ScanDevice(uint8_t bus, uint8_t device) {
@@ -57,7 +54,7 @@ namespace { //internal linkage(= can't be accessed by other file)
             return err;
         }
         if ( IsSingleFunctionDevice(ReadHeaderType(bus, device, 0))) {
-            return Error::kSuccess;
+            return MAKE_ERROR(Error::kSuccess);
         }
 
         for (uint8_t function = 1; function < 8; ++ function) {
@@ -68,7 +65,7 @@ namespace { //internal linkage(= can't be accessed by other file)
                 return err;
             }
         }
-        return Error::kSuccess;
+        return MAKE_ERROR(Error::kSuccess);
     }
 
     Error ScanBus(uint8_t bus) {
@@ -80,13 +77,12 @@ namespace { //internal linkage(= can't be accessed by other file)
                 return err;
             }
         }
-        return Error::kSuccess;
+        return MAKE_ERROR(Error::kSuccess);
     }
 
 }
 
 namespace pci {
-    
     void WriteAddress(uint32_t address) { //output the data in eax to the area
         IoOut32(kConfigAddress, address); //address is set to the memory in kConfigAddress.
     }
@@ -115,9 +111,14 @@ namespace pci {
         return (ReadData() >> 16) & 0xffu;
   }
 
-    uint32_t ReadClassCode(uint8_t bus, uint8_t device, uint8_t function) {
+    ClassCode ReadClassCode(uint8_t bus, uint8_t device, uint8_t function) {
         WriteAddress(MakeAddress(bus, device, function, 0x08));
-        return ReadData();
+        auto reg = ReadData();
+        ClassCode cc;
+        cc.base = (reg >> 24) & 0xffu;
+        cc.sub = (reg >> 16) & 0xffu;
+        cc.interface = (reg >> 8) & 0xffu;
+        return cc;
   }
 
     uint32_t ReadBusNumbers(uint8_t bus, uint8_t device, uint8_t function) {
@@ -127,7 +128,6 @@ namespace pci {
 
     bool IsSingleFunctionDevice(uint8_t header_type) {
         return (header_type & 0x80u) == 0; //bit 7 of header type represents this device is multi function device
-
 }
 
     Error ScanAllBus() { //search for device connented to PCI bus recursively.
@@ -138,7 +138,7 @@ namespace pci {
             return ScanBus(0);
         }
 
-        for(uint8_t function = 1;function < 8; ++function){
+        for(uint8_t function = 0;function < 8; ++function){
             if(ReadVendorId(0,0,function) == 0xffffu) { //ref p143( to check if there is this "funciton".)
                 continue;
             }

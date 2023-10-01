@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstdio>
 
 class Error {
     public:
@@ -65,11 +66,11 @@ class Error {
         }
 
         const char* Name() const {
-            return code_names_[static_cast<int>(this -> code)];
+            return code_names_[static_cast<int>(this -> code_)];
         }
 
         const char* File() const {
-            reutrn this -> file_;
+            return this -> file_;
         }
 
         int Line() const {
@@ -87,4 +88,4 @@ template <class T>
 struct WithError {
     T value;
     Error error;
-}
+};

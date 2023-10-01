@@ -58,6 +58,8 @@ namespace pci {
   uint16_t ReadDeviceId(uint8_t bus, uint8_t device, uint8_t function);
   /** @brief ヘッダタイプレジスタを読み取る（全ヘッダタイプ共通） */
   uint8_t ReadHeaderType(uint8_t bus, uint8_t device, uint8_t function);
+    /** @brief クラスコードレジスタを読み取る（全ヘッダタイプ共通） */
+  ClassCode ReadClassCode(uint8_t bus, uint8_t device, uint8_t function);
 
   inline uint16_t ReadVendorId(const Device& dev) {
     return ReadVendorId(dev.bus,dev.device,dev.function);
@@ -70,7 +72,11 @@ namespace pci {
    *   - 15:8  : インターフェース
    *   - 7:0   : リビジョン
    */
-  uint32_t ReadClassCode(uint8_t bus, uint8_t device, uint8_t function);
+  
+  /** @brief 指定された PCI デバイスの 32 ビットレジスタを読み取る */
+  uint32_t ReadConfReg(const Device& dev, uint8_t reg_addr);
+
+  void WriteConfReg(const Device& dev, uint8_t reg_addr, uint32_t value);
 
   /** @brief バス番号レジスタを読み取る（ヘッダタイプ 1 用）
    *

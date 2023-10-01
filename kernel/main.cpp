@@ -7,6 +7,7 @@
 
 #include "frame_buffer_config.hpp"
 #include "graphics.hpp"
+#include "mouse.hpp"
 #include "font.hpp"
 #include "console.hpp"
 #include "pci.hpp"
@@ -44,7 +45,7 @@ int printk(const char* format, ...) { //allocatable args
 char mouse_cursor_buf[sizeof(MouseCursor)];
 MouseCursor* mouse_cursor;
 
-void MouseObserver(int8_t displacement_x, int8_t, int8_t displacement_y) {
+void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
     mouse_cursor -> MoveRelative({displacement_x, displacement_y});
 }
 
@@ -102,7 +103,6 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
                     {30, 30},
                     {160, 160, 160});
 
-
     // to use console as an global variable(it's defined at l20)
     console = new(console_buf) Console(*pixel_writer, kDesktopFGColor, kDesktopBGColor); //allocate console in global area
 
@@ -114,7 +114,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 
     auto err = pci::ScanAllBus();
     Log(kDebug, "ScanAllBus: %s\n", err.Name());
-
+    
     for (int i = 0;i < pci::num_device; ++i) {
         const auto& dev = pci::devices[i];
         auto vendor_id = pci::ReadVendorId(dev);
@@ -123,7 +123,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
         dev.bus, dev.device, dev.function,
         vendor_id, class_code, dev.header_type);
     }
-    
+    //look for xHC.
     pci::Device* xhc_dev = nullptr;
     for (int i = 0; i < pci::num_device ; ++i) {
         if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x30u)) { //it means xHCl(ref p151)
@@ -133,6 +133,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
                 break;
             }
         }
+    }
 
     if(xhc_dev) {
         Log(kInfo, "xHC has been found: %d.%d.%d\n",
@@ -165,11 +166,11 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
     //configure_part
     usb::HIDMouseDriver::default_observer = MouseObserver; //this is class driver for USB mouse(ref p155)
 
-    for (int i = 1; i <= xhc.MaxPorts() ; ++1) {
-        auto port = xhc.PostAt(i);
+    for (int i = 1; i <= xhc.MaxPorts() ; ++i) {
+        auto port = xhc.PortAt(i);
         Log(kDebug, "Port %d: IsConnected = %d\n", i, port.IsConnected());
 
-        if (port.IsConnedted()) {
+        if (port.IsConnected()) {
             if (auto err = ConfigurePort(xhc, port)) { //ADL
                 Log(kError, "failed to configure port: %s at %s:%d\n",
                 err.Name(), err.File(), err.Line());
@@ -186,4 +187,8 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
     }
 
     while (1) __asm__("hlt");
+}
+
+extern "C" void __cxa_pure_virtual() {
+  while (1) __asm__("hlt");
 }

@@ -1,8 +1,7 @@
-pci.o: pci.cpp pci.hpp \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstdint \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/__config \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/stdint.h \
+usb/classdriver/hid.o: usb/classdriver/hid.cpp usb/classdriver/hid.hpp \
+  usb/classdriver/base.hpp error.hpp \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/array \
+  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/__config \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/__tuple \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstddef \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/version \
@@ -11,6 +10,8 @@ pci.o: pci.cpp pci.hpp \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/initializer_list \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstring \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/string.h \
+  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstdint \
+  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/stdint.h \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/__debug \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/iterator \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/iosfwd \
@@ -30,6 +31,7 @@ pci.o: pci.cpp pci.hpp \
   /home/nonoka/osbook/devenv/x86_64-elf/include/assert.h \
   /home/nonoka/osbook/devenv/x86_64-elf/include/_ansi.h \
   /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/functional \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/bit error.hpp \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/cstdio \
-  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/stdio.h asmfunc.h
+  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/bit \
+  usb/endpoint.hpp usb/setupdata.hpp usb/device.hpp usb/arraymap.hpp \
+  /home/nonoka/osbook/devenv/x86_64-elf/include/c++/v1/optional \
+  logger.hpp

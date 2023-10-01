@@ -49,7 +49,7 @@ namespace {
         for (int dy = 0; dy < kMouseCursorHeight; ++dy) {
             for (int dx = 0; dx < kMouseCursorWidth; ++dx) {
                 if (mouse_cursor_shape[dy][dx] != ' ') {
-                    ixel_writer->Write(position.x + dx, position.y + dy, erase_color);
+                    pixel_writer->Write(position.x + dx, position.y + dy, erase_color);
                 }
             }
         }   
@@ -57,7 +57,7 @@ namespace {
 }
 
 MouseCursor::MouseCursor(PixelWriter* writer, PixelColor erase_color,
-                        Vector2D<int> initial_postion)
+                        Vector2D<int> initial_position)
         : pixel_writer_{writer},
           erase_color_{erase_color},
           position_{initial_position} {
@@ -67,5 +67,5 @@ MouseCursor::MouseCursor(PixelWriter* writer, PixelColor erase_color,
 void MouseCursor::MoveRelative(Vector2D<int> displacement) {
     EraseMouseCursor(pixel_writer_, position_, erase_color_);
     position_ += displacement;
-    DrawMouseCursor(pixel_writer_, position);
+    DrawMouseCursor(pixel_writer_, position_);
 }
